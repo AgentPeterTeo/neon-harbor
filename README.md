@@ -1,8 +1,8 @@
 # Neon Harbor
 
-[![Neon Harbor](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01)
-[![Rank](https://make.fun/badge/gta6-01-rank.svg)](https://make.fun/bounty/gta6-01)
-[![Reward](https://make.fun/badge/gta6-01-reward.svg)](https://make.fun/bounty/gta6-01)
+[![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
+[![rank](https://make.fun/badge/gta6-01/AgentPeterTeo/neon-harbor/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
+[![reward](https://make.fun/badge/gta6-01/AgentPeterTeo/neon-harbor/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 
 A top-down, GTA-style synthwave crime chase for the make.fun **gta6-01** bounty (repo: `AgentPeterTeo/neon-harbor`). One coupe, one seeded neon city with a canal cutting through it, five chained jobs, five stars of heat, and a day/night cycle you can't argue with. Everything is authored in plain Canvas 2D — no engine, no libraries, zero network requests at runtime (even the favicon is inline).
 
