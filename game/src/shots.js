@@ -43,8 +43,9 @@ export function setupShot(mode, ctx, seed) {
 
   if (mode === 'play') {
     // mid-chase: the player hammering down the neon strip, two cruisers with
-    // live lightbars stacked behind, full HUD on
-    world.tod = 0.16;
+    // live lightbars stacked behind, full HUD on — bright day so the chase
+    // reads on a store screenshot instead of a near-black frame
+    world.tod = 0.84;
     world.frozen = true;
     const stripX = GRID.lineAt(9);
     const car = ctx.enterShotCar('sports', 0x22e6ff, stripX + 3, 60, Math.PI);
@@ -58,12 +59,13 @@ export function setupShot(mode, ctx, seed) {
     hud.setMoney(2350, false);
     hud.setObjective('<b>HOT CARGO</b> · get it to the ferry dock — GO!');
     // chase cam locked low behind the car, looking down the street: the
-    // player's ride mid-frame, both cruisers stacked behind with lights live
+    // player's ride mid-frame, both cruisers stacked behind with lights live;
+    // pitched level so the dusk horizon sits mid-frame behind the skyline
     return {
       camOrbit: {
         getCenter: () => ({ x: car.x, z: car.z }),
-        phase: 1.75, speed: 0, r: 14, h: 4.6,
-        lookOz: -16, lookY: 2.2,
+        phase: 1.75, speed: 0, r: 15, h: 4.8,
+        lookOz: -22, lookY: 4.2,
       },
     };
   }
