@@ -123,6 +123,8 @@ export function makeCarMesh(type, colorHex, scene) {
 /** Arcade car physics. car: {x, z, yaw, vx, vz, hp, type}; ctl: {throttle, steer, handbrake}. */
 export function stepCar(car, dt, ctl, world) {
   const spec = CAR_TYPES[car.type];
+  const boost = car.boost || 1;   // pursuit cruisers scale their spec with wanted stars
+  const maxSpeed = spec.maxSpeed * boost;
   const fx = Math.sin(car.yaw);
   const fz = Math.cos(car.yaw);
   const fwdSpeed = car.vx * fx + car.vz * fz;
@@ -130,7 +132,7 @@ export function stepCar(car, dt, ctl, world) {
   const latZ = car.vz - fz * fwdSpeed;
 
   let accel = 0;
-  if (ctl.throttle > 0) accel = spec.accel * ctl.throttle * Math.max(0.15, 1 - Math.max(0, fwdSpeed) / spec.maxSpeed);
+  if (ctl.throttle > 0) accel = spec.accel * boost * ctl.throttle * Math.max(0.15, 1 - Math.max(0, fwdSpeed) / maxSpeed);
   else if (ctl.throttle < 0) accel = fwdSpeed > 0.5 ? -spec.brake : -spec.accel * 0.55;
 
   const grip = (ctl.handbrake ? spec.grip * 0.35 : spec.grip) * (car.slippery ? 0.6 : 1);
@@ -143,7 +145,7 @@ export function stepCar(car, dt, ctl, world) {
   car.vz *= roll ** 0.25;
 
   const speed = Math.hypot(car.vx, car.vz);
-  const steerAuthority = Math.min(1, Math.abs(fwdSpeed) / 5) * (1 - Math.min(0.55, Math.abs(fwdSpeed) / spec.maxSpeed * 0.55));
+  const steerAuthority = Math.min(1, Math.abs(fwdSpeed) / 5) * (1 - Math.min(0.55, Math.abs(fwdSpeed) / maxSpeed * 0.55));
   const dirSign = fwdSpeed < -0.5 ? -1 : 1;
   car.yaw += ctl.steer * spec.turn * steerAuthority * dirSign * dt * (ctl.handbrake ? 1.5 : 1);
 

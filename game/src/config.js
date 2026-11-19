@@ -90,12 +90,12 @@ export const PLAYER = {
 
 export const WANTED = {
   thresholds: [22, 60, 120, 220, 340],
-  pedHit: 34, carBump: 7, copBump: 14, copKilled: 80,
-  evadeTime: 9, decay: 1.4,       // seconds hidden before a star cools; heat lost per second
-  bustTime: 1.3, bustDist: 7.5,
+  pedHit: 34, carBump: 7, copBump: 14, copKilled: 80, carjack: 26,
+  evadeTime: 12, decay: 2.2,      // seconds hidden before a star cools; heat lost per second
+  bustTime: 1.8, bustDist: 3.4,   // cornered this close, for this long, on foot -> BUSTED
 };
 
-export const ECON = { start: 500, bustedFee: 150, wastedFee: 100 };
+export const ECON = { start: 500, bustedFee: 100, wastedFee: 100 };
 
 export const TRAFFIC = {
   driveTarget: 44,        // driving cars kept alive around the player
@@ -128,4 +128,5 @@ export const PLACES = {
   safehouse: [-816, -720],
   bank: [8.6, -190],           // east sidewalk of the main avenue, downtown
   ferry: [860, 860],
+  diner: [-88.2, -150],       // two blocks north on the neon strip; tutorial stop
 };

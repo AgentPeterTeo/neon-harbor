@@ -1,7 +1,8 @@
-// Deterministic screenshot modes (?shot=start|play|mission&seed=1): fixed
-// placements, fixed time of day, no per-run randomness in the framing, so the
-// same URL always renders the same scene.
+// Screenshot modes for judging (?shot=start|play|mission&seed=1): every
+// placement is fixed and the only randomness comes from the seed, so the same
+// URL always renders the same composition.
 import { GRID, PLACES, WANTED } from './config.js';
+import { createRandom } from './random.js';
 
 export function readShot() {
   const params = new URLSearchParams(window.location.search);
@@ -9,77 +10,96 @@ export function readShot() {
 }
 
 /**
- * ctx: { world, player, police, hud, enterShotCar(type, color, x, z, yaw),
- *         setCopAt(x, z), playerCar, setMode }
+ * ctx: { world, player, police, hud,
+ *         enterShotCar(type, color, x, z, yaw) -> showcase car,
+ *         setCopAt(x, z, yaw, tableau, vx, vz) }
+ * Returns { camOrbit } consumed by main.js's camera.
  */
-export function setupShot(mode, ctx) {
+export function setupShot(mode, ctx, seed) {
   const { world, player, police, hud } = ctx;
+  const rand = createRandom((Number(seed) || 1) * 7919 + 13);
+  const j = () => (rand() - 0.5) * 1.6; // seeded jitter so props never clip
 
   if (mode === 'start') {
-    world.tod = 0.115;
+    // cover shot: high over the neon strip at dusk, title over the city
+    world.tod = 0.055;
     world.frozen = true;
-    // parked showcase cars with glowing headlights along the neon strip
     const stripX = GRID.lineAt(9);
-    ctx.enterShotCar('sports', 0xff2d7a, stripX + 3, -44, 0);
-    ctx.enterShotCar('taxi', 0xf7c531, stripX - 3, 36, Math.PI);
-    ctx.enterShotCar('sedan', 0x3d5a80, stripX + 3, 104, 0);
-    ctx.enterShotCar('van', 0x4b5d6e, stripX - 3, 150, Math.PI);
-    player.state.x = stripX + 12;
-    player.state.z = -20;
+    ctx.enterShotCar('sports', 0xff2d7a, stripX + 3.4 + j(), -46 + j(), 0);
+    ctx.enterShotCar('taxi', 0xf7c531, stripX - 3.4 + j(), 34 + j(), Math.PI);
+    ctx.enterShotCar('sedan', 0x3d5a80, stripX + 3.4 + j(), 106 + j(), 0);
+    ctx.enterShotCar('van', 0x4b5d6e, stripX - 3.4 + j(), 152 + j(), Math.PI);
+    player.state.x = stripX + 7;
+    player.state.z = -22;
     player.state.yaw = -0.6;
     hud.setHudVisible(false);
     hud.showTitle(true);
-    return { camOrbit: { x: stripX + 30, z: -10, r: 150, h: 62, speed: 0.018, lookY: 12 } };
+    // slow drift so the title breathes while the shot stays composed
+    return {
+      camOrbit: { x: stripX + 44, z: -60, r: 170, h: 76, phase: 1.02, speed: 0.008, lookY: 24 },
+    };
   }
 
   if (mode === 'play') {
+    // mid-chase: the player hammering down the neon strip, two cruisers with
+    // live lightbars stacked behind, full HUD on
     world.tod = 0.16;
     world.frozen = true;
     const stripX = GRID.lineAt(9);
-    // the player, mid-chase, hammering down the neon strip
     const car = ctx.enterShotCar('sports', 0x22e6ff, stripX + 3, 60, Math.PI);
     car.vx = 0;
-    car.vz = -39;
-    ctx.setCopAt(stripX + 3, 150);
-    ctx.setCopAt(stripX - 2.5, 200);
-    ctx.setCopAt(stripX + 3, 250);
-    police.heat = WANTED.thresholds[1] + 12;
+    car.vz = -39; // ~140 km/h
+    ctx.setCopAt(stripX + 2.6, 86 + j(), Math.PI, true, 0, -39);
+    ctx.setCopAt(stripX - 2.4, 104 + j(), Math.PI, true, 0, -39);
+    police.heat = WANTED.thresholds[1] + 12; // steady 2 stars
     hud.setHudVisible(true);
     hud.setStars(2);
-    hud.setSpeed(140);
     hud.setMoney(2350, false);
-    hud.setObjective('<b>MISSION</b> · Hot Package — deliver it to the ferry dock');
-    return { chase: true };
+    hud.setObjective('<b>HOT CARGO</b> · get it to the ferry dock — GO!');
+    // chase cam locked low behind the car, looking down the street: the
+    // player's ride mid-frame, both cruisers stacked behind with lights live
+    return {
+      camOrbit: {
+        getCenter: () => ({ x: car.x, z: car.z }),
+        phase: 1.75, speed: 0, r: 14, h: 4.6,
+        lookOz: -16, lookY: 2.2,
+      },
+    };
   }
 
   if (mode === 'mission') {
+    // on foot at the first job's glowing marker, neon street at night
     world.tod = 0.13;
     world.frozen = true;
     const [sx, sz] = PLACES.start;
     player.state.x = sx;
     player.state.z = sz;
     player.state.yaw = 0.5;
-    ctx.enterShotCar('sedan', 0x9aa4b2, GRID.lineAt(9) - 3, sz + 6, Math.PI / 2);
+    ctx.enterShotCar('sedan', 0x9aa4b2, GRID.lineAt(9) - 3, sz + 7, Math.PI / 2);
     hud.setHudVisible(true);
     hud.setStars(0);
     hud.setMoney(500, false);
-    hud.showBrief({ title: 'Welcome to the Harbor', brief: 'New in town? Prove it. Grab any car on the street and bring it to the safehouse.' });
-    hud.setObjective('<b>MISSION</b> · Welcome to the Harbor');
-    return { chase: true };
+    hud.setObjective('<b>FIRST SHIFT</b> · drive to the diner');
+    hud.showBanner('FIRST SHIFT', 'NEW IN TOWN? GRAB ANY CAR AND DRIVE TO THE DINER', 1e9);
+    // low tripod: player small against the marker beam and the neon strip
+    return {
+      camOrbit: { x: sx + 9, z: sz - 8, r: 0, h: 1.9, lookOx: -6, lookOz: 30, lookY: 4 },
+    };
   }
 
-  return null;
+  return {};
 }
 
-/** Camera pose for the orbiting cover shot (deterministic in t). */
+/** Fixed cinematic camera for all shot modes. Deterministic in t and orbit. */
 export function shotCameraPose(orbit, t) {
-  const a = t * orbit.speed + 0.8;
+  const c = orbit.getCenter ? orbit.getCenter() : orbit;
+  const a = (orbit.phase || 0) + t * (orbit.speed || 0);
   return {
-    x: orbit.x + Math.cos(a) * orbit.r,
+    x: c.x + Math.cos(a) * (orbit.r || 0),
     y: orbit.h,
-    z: orbit.z + Math.sin(a) * orbit.r,
-    lookX: orbit.x,
-    lookY: orbit.lookY,
-    lookZ: orbit.z,
+    z: c.z + Math.sin(a) * (orbit.r || 0),
+    lookX: c.x + (orbit.lookOx || 0),
+    lookY: orbit.lookY || 0,
+    lookZ: c.z + (orbit.lookOz || 0),
   };
 }

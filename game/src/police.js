@@ -47,11 +47,13 @@ export function createPolice(scene, world, rand, particles) {
       yaw: randFn() * Math.PI * 2,
       vx: 0, vz: 0, speed: 0,
       hp: 100,
+      boost: 1,
       mesh,
       stuck: 0,
       reverse: 0,
       dead: false,
       fireT: 0,
+      tableau: false,   // set by shot modes: scripted chase, no AI
     };
     cops.push(cop);
     return cop;
@@ -110,6 +112,19 @@ export function createPolice(scene, world, rand, particles) {
 
     for (const c of cops) {
       if (c.dead) continue;
+
+      // Shot-mode cruisers: scripted chase, hold formation and flash.
+      if (c.tableau) {
+        c.x += c.vx * dt;
+        c.z += c.vz * dt;
+        const flash = Math.sin(sirenPhase) > 0;
+        c.mesh.lightbar.red.material.color.setHex(flash ? 0xff2020 : 0x300808);
+        c.mesh.lightbar.blue.material.color.setHex(flash ? 0x081030 : 0x3050ff);
+        c.mesh.group.position.set(c.x, 0, c.z);
+        c.mesh.group.rotation.y = c.yaw;
+        continue;
+      }
+
       const tx = playerCar ? playerCar.x : player.x;
       const tz = playerCar ? playerCar.z : player.z;
       const dx = tx - c.x;
@@ -117,7 +132,8 @@ export function createPolice(scene, world, rand, particles) {
       const dist = Math.hypot(dx, dz);
       if (dist < 150) seen = true;
 
-      // pursuit steering
+      // pursuit steering; cruisers press harder with every star
+      c.boost = 1 + stars * 0.05;
       let targetYaw = Math.atan2(dx, dz);
       let dy = targetYaw - c.yaw;
       while (dy > Math.PI) dy -= Math.PI * 2;
@@ -127,11 +143,14 @@ export function createPolice(scene, world, rand, particles) {
       if (c.reverse > 0) {
         c.reverse -= dt;
         ctl = { throttle: -1, steer: -Math.sign(dy), handbrake: false };
-      } else if (dist < 7 && !playerCar) {
-        // on foot: stop and arrest
-        ctl = { throttle: 0, steer: 0, handbrake: true };
-      } else if (dist < 16 && !playerCar) {
-        ctl = { throttle: 0.6 * Math.min(1, (dist - 6) / 6), steer: Math.sign(dy) * Math.min(1, Math.abs(dy) * 2), handbrake: false };
+      } else if (!playerCar && dist < 16) {
+        // on foot: creep in until the cruiser noses the player, then hold
+        const creep = dist > WANTED.bustDist - 0.8;
+        ctl = {
+          throttle: creep ? 0.5 * Math.min(1, (dist - 2.2) / 4) : 0,
+          steer: Math.sign(dy) * Math.min(1, Math.abs(dy) * 2),
+          handbrake: !creep,
+        };
       } else {
         ctl = {
           throttle: Math.abs(dy) > 2.4 && dist < 40 ? 0.25 : 1,

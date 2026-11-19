@@ -15,7 +15,7 @@ import { createTraffic } from './traffic.js';
 import { createPolice } from './police.js';
 import { makeCarMesh, stepCar, collideCars } from './vehicles.js';
 import { createPlayer } from './player.js';
-import { createMissions } from './missions.js';
+import { createMissions, MARKED_SPOTS } from './missions.js';
 import { createHUD } from './hud.js';
 import { createAudio } from './audio.js';
 import { createRender } from './render.js';
@@ -77,6 +77,7 @@ let pendingMission = -1;    // index offered at the marker
 let displayCars = [];        // shot-mode showcase cars / abandoned cars
 let orbit = null;            // shot 'start' camera orbit
 let fireT = 0;
+let legendAt = 0;            // CITY LEGEND banner time, once all five jobs pay
 
 /* ---------------- mission marker ---------------- */
 const markerGroup = new THREE.Group();
@@ -128,12 +129,20 @@ function enterShotCar(type, color, x, z, yaw) {
   return car;
 }
 
-function setCopAt(x, z) {
+function setCopAt(x, z, yaw = Math.PI, tableau = false, vx = 0, vz = 0) {
   const mesh = makeCarMesh('police', 0x0d0d12, scene);
   police.cops.push({
-    cop: true, type: 'police', x, z, yaw: Math.PI, vx: 0, vz: 0, speed: 0,
-    hp: 100, mesh, stuck: 0, reverse: 0, dead: false, fireT: 0,
+    cop: true, type: 'police', x, z, yaw, vx, vz, speed: Math.hypot(vx, vz),
+    hp: 100, boost: 1, mesh, stuck: 0, reverse: 0, dead: false, fireT: 0, tableau,
   });
+}
+
+let repoCar = null;        // the chop shop's current marked target
+function spawnMarkedCar(n) {
+  const [x, z, yaw, color] = MARKED_SPOTS[n];
+  repoCar = spawnRealCar('sports', color, x, z, yaw);
+  displayCars.push(repoCar);
+  missions.setTarget(repoCar);
 }
 
 function tryEnterCar() {
@@ -166,7 +175,7 @@ function tryEnterCar() {
     playerCar = spawnRealCar(best.type, colors[Math.floor(rand() * colors.length)], best.x, best.z, best.yaw);
     playerCar.stolen = true;
     if (wasDriving) {
-      police.addHeat(12);
+      police.addHeat(WANTED.carjack);
       hud.showToast('CARJACKED — DRIVER RAN');
       audio.crash(2);
     } else {
@@ -208,6 +217,7 @@ function wasted(reason) {
   hud.showBanner('WASTED', `${reason} · -$${ECON.wastedFee}`, 2.6);
   audio.explosion();
   if (playerCar) {
+    playerCar.dead = true;   // wrecked merchandise fails any marked-car job
     for (let i = 0; i < 26; i += 1) {
       particles.spawn(playerCar.x, 1, playerCar.z, {
         vx: (rand() - 0.5) * 10, vy: 2 + rand() * 7, vz: (rand() - 0.5) * 10,
@@ -260,6 +270,29 @@ traffic.hooks.onPedHit = () => {
 traffic.hooks.onCarBump = () => police.addHeat(WANTED.carBump);
 traffic.hooks.onDriverFled = () => hud.showToast('DRIVER BAILED');
 
+/* ---------------- mission helpers ---------------- */
+function activeMarkerPos() {
+  if (missions.active) {
+    const a = missions.active;
+    const step = a.def.steps[a.stepIdx];
+    if (step.kind === 'stealMarked' && a.targetCar && !a.targetCar.dead) return [a.targetCar.x, a.targetCar.z];
+    if (step.place) return PLACES[step.place];
+    return null;
+  }
+  const mk = missions.startMarker();
+  return mk ? [mk.x, mk.z] : null;
+}
+
+function missionLog() {
+  const offer = missions.startMarker();
+  return missions.MISSIONS.map((m, i) => {
+    const done = missions.done.includes(m.id);
+    const current = !!missions.active && missions.active.def.id === m.id;
+    const state = done ? 'done' : (current || (offer && offer.index === i)) ? 'current' : 'locked';
+    return { title: m.title, state };
+  });
+}
+
 /* ---------------- mission events ---------------- */
 function onMissionEvents(events) {
   for (const ev of events) {
@@ -269,19 +302,27 @@ function onMissionEvents(events) {
       if (a) {
         const step = a.def.steps[a.stepIdx];
         if (a.def.id === 'delivery' && step && step.place === 'ferry') {
-          police.addHeat(WANTED.thresholds[0] + 10);   // the bank was watched
+          police.addHeat(WANTED.thresholds[1] + 10);   // the bank was watched: two stars
           hud.showToast('THE COPS SAW YOU — RUN!');
+        }
+        if (a.def.id === 'heist' && step && step.place === 'ferry') {
+          police.addHeat(WANTED.thresholds[1] + 10);   // the vault alarm: getaway heat
+          hud.showToast('THE ALARM WENT OFF — RUN FOR THE BOAT!');
         }
         if (a.def.id === 'shake' && a.stepIdx === 1) hud.showToast('HEAT OFF — GET HOME CLEAN');
         if (ev.arrive === 'deliver' && playerCar) {
           // the chop shop keeps the car
           disposeCar(playerCar);
+          if (repoCar === playerCar) repoCar = null;
           playerCar = null;
           player.state.inCar = false;
           player.group.visible = true;
           player.state.x = PLACES.garage[0] + 6;
           player.state.z = PLACES.garage[1];
           hud.showToast('CAR DELIVERED');
+        }
+        if (a.def.id === 'repo' && step && step.kind === 'stealMarked') {
+          spawnMarkedCar(step.car);   // the next car on the shop's list
         }
       }
     } else if (ev.type === 'missionComplete') {
@@ -292,9 +333,20 @@ function onMissionEvents(events) {
       hud.hideBrief();
       hud.setObjective(null);
       saveGame();
+      if (missions.done.length >= missions.MISSIONS.length) legendAt = simTime + 3.2;
     } else if (ev.type === 'missionFail') {
-      hud.showBanner('MISSION FAILED', 'the marker is still out there', 2.4);
+      hud.showBanner(
+        'MISSION FAILED',
+        ev.reason === 'wrecked' ? 'you wrecked the merchandise' : 'the marker is still out there',
+        2.4,
+      );
       hud.hideBrief();
+      if (repoCar && repoCar !== playerCar && !repoCar.dead) {
+        const di = displayCars.indexOf(repoCar);
+        if (di >= 0) displayCars.splice(di, 1);
+        disposeCar(repoCar);
+        repoCar = null;
+      }
     }
   }
 }
@@ -320,66 +372,78 @@ function simulate(dt) {
 
   /* ----- player driving ----- */
   if (playerCar && !playerCar.dead) {
-    const ctl = {
-      throttle: input.throttle(),
-      steer: input.steer(),
-      handbrake: input.held.brake,
-    };
-    const impact = stepCar(playerCar, dt, ctl, world);
-    if (impact > 5) {
-      audio.crash(impact);
-      if (impact > 12) police.addHeat(WANTED.carBump);
-      playerCar.hp -= impact * 0.9;
-      if (impact > 9) {
-        particles.burst(playerCar.x, 0.8, playerCar.z, 5, { color: 0xffcc66, ttl: 0.5 });
+    if (shot.mode === 'play') {
+      // scripted chase for the screenshot: hold speed and heading — no input,
+      // no damage, no city shoving; the cruisers hold formation behind
+      playerCar.x += playerCar.vx * dt;
+      playerCar.z += playerCar.vz * dt;
+      playerCar.speed = Math.hypot(playerCar.vx, playerCar.vz);
+      player.state.x = playerCar.x;
+      player.state.z = playerCar.z;
+      playerCar.mesh.group.position.set(playerCar.x, 0, playerCar.z);
+      playerCar.mesh.group.rotation.y = playerCar.yaw;
+    } else {
+      const ctl = {
+        throttle: input.throttle(),
+        steer: input.steer(),
+        handbrake: input.held.brake,
+      };
+      const impact = stepCar(playerCar, dt, ctl, world);
+      if (impact > 5) {
+        audio.crash(impact);
+        if (impact > 12) police.addHeat(WANTED.carBump);
+        playerCar.hp -= impact * 0.9;
+        if (impact > 9) {
+          particles.burst(playerCar.x, 0.8, playerCar.z, 5, { color: 0xffcc66, ttl: 0.5 });
+        }
       }
-    }
-    // shove traffic, take damage, panic the neighbourhood
-    for (let i = traffic.cars.length - 1; i >= 0; i -= 1) {
-      const c = traffic.cars[i];
-      const closing = collideCars(playerCar, c);
-      if (closing > 3) {
-        audio.crash(closing);
-        police.addHeat(WANTED.carBump);
-        c.panic = 3.5;
-        playerCar.hp -= closing * 0.7;
-        c.hp -= closing * 1.6;
-        if (c.hp <= 0) traffic.removeCar(c);
+      // shove traffic, take damage, panic the neighbourhood
+      for (let i = traffic.cars.length - 1; i >= 0; i -= 1) {
+        const c = traffic.cars[i];
+        const closing = collideCars(playerCar, c);
+        if (closing > 3) {
+          audio.crash(closing);
+          police.addHeat(WANTED.carBump);
+          c.panic = 3.5;
+          playerCar.hp -= closing * 0.7;
+          c.hp -= closing * 1.6;
+          if (c.hp <= 0) traffic.removeCar(c);
+        }
       }
-    }
-    // burning chain
-    if (playerCar.hp < 45 && rand() < 0.35) {
-      particles.spawn(playerCar.x, 1.1, playerCar.z, {
-        vx: (rand() - 0.5), vy: 2.6, vz: (rand() - 0.5), color: 0x555a66, ttl: 0.9,
-      });
-    }
-    if (playerCar.hp < 18) {
-      fireT += dt;
-      playerCar.hp -= 4.5 * dt;
-      if (fireT > 0.08) {
-        fireT = 0;
-        particles.spawn(playerCar.x, 1.0, playerCar.z, {
-          vx: (rand() - 0.5) * 1.4, vy: 3.2, vz: (rand() - 0.5) * 1.4,
-          color: rand() < 0.5 ? 0xff5522 : 0xffd24a, ttl: 0.7,
+      // burning chain
+      if (playerCar.hp < 45 && rand() < 0.35) {
+        particles.spawn(playerCar.x, 1.1, playerCar.z, {
+          vx: (rand() - 0.5), vy: 2.6, vz: (rand() - 0.5), color: 0x555a66, ttl: 0.9,
         });
       }
+      if (playerCar.hp < 18) {
+        fireT += dt;
+        playerCar.hp -= 4.5 * dt;
+        if (fireT > 0.08) {
+          fireT = 0;
+          particles.spawn(playerCar.x, 1.0, playerCar.z, {
+            vx: (rand() - 0.5) * 1.4, vy: 3.2, vz: (rand() - 0.5) * 1.4,
+            color: rand() < 0.5 ? 0xff5522 : 0xffd24a, ttl: 0.7,
+          });
+        }
+      }
+      if (playerCar.hp <= 0) {
+        wasted('YOUR RIDE WENT UP IN FLAMES');
+        return;
+      }
+      player.state.x = playerCar.x;
+      player.state.z = playerCar.z;
+      playerCar.mesh.group.position.set(playerCar.x, 0, playerCar.z);
+      playerCar.mesh.group.rotation.y = playerCar.yaw;
     }
-    if (playerCar.hp <= 0) {
-      wasted('YOUR RIDE WENT UP IN FLAMES');
-      return;
-    }
-    player.state.x = playerCar.x;
-    player.state.z = playerCar.z;
-    playerCar.mesh.group.position.set(playerCar.x, 0, playerCar.z);
-    playerCar.mesh.group.rotation.y = playerCar.yaw;
   } else {
     /* ----- player on foot ----- */
     const fx = Math.sin(camYaw);
     const fz = Math.cos(camYaw);
     const rx = Math.cos(camYaw);
     const rz = -Math.sin(camYaw);
-    const inY = input.throttle();
-    const inX = input.steer();
+    const inY = shot.mode ? 0 : input.throttle();
+    const inX = shot.mode ? 0 : input.steer();
     const moveX = fx * inY + rx * inX;
     const moveZ = fz * inY + rz * inX;
     player.update(dt, moveX, moveZ, input.held.run);
@@ -402,8 +466,19 @@ function simulate(dt) {
     }
   }
 
+  // CITY LEGEND: the chain is done — one last banner, then free roam
+  if (legendAt && simTime >= legendAt) {
+    legendAt = 0;
+    hud.showBanner('CITY LEGEND', 'ALL FIVE JOBS DONE — THE HARBOR IS YOURS', 4);
+    audio.jingle();
+  }
+
   /* ----- living city ----- */
-  traffic.update(dt, player.state, playerCar && !playerCar.dead ? playerCar : null, simTime, police.cops);
+  // shot=play: keep civilian spawns far off the chase street
+  const trafficPos = shot.mode === 'play'
+    ? { x: player.state.x + 640, z: player.state.z }
+    : player.state;
+  traffic.update(dt, trafficPos, shot.mode === 'play' ? null : (playerCar && !playerCar.dead ? playerCar : null), simTime, police.cops);
   const pr = police.update(dt, player.state, playerCar && !playerCar.dead ? playerCar : null, true, simTime);
   hud.setStars(pr.stars);
   audio.siren(pr.siren && !paused);
@@ -423,13 +498,9 @@ function simulate(dt) {
     });
     onMissionEvents(events);
     if (missions.active) {
-      const s = missions.active.def.steps[missions.active.stepIdx];
-      if (s && s.place) {
-        markerGroup.visible = true;
-        markerGroup.position.set(PLACES[s.place][0], 0, PLACES[s.place][1]);
-      } else {
-        markerGroup.visible = false;
-      }
+      const mp = activeMarkerPos();
+      markerGroup.visible = !!mp;
+      if (mp) markerGroup.position.set(mp[0], 0, mp[1]);
     }
   } else {
     hud.setTimer(null);
@@ -467,7 +538,7 @@ function simulate(dt) {
 /* ---------------- shot modes ---------------- */
 if (shot.mode) {
   mode = 'play';
-  const cfg = setupShot(shot.mode, { world, player, police, hud, enterShotCar, setCopAt });
+  const cfg = setupShot(shot.mode, { world, player, police, hud, enterShotCar, setCopAt }, shot.seed);
   if (cfg && cfg.camOrbit) orbit = cfg.camOrbit;
 }
 
@@ -484,10 +555,18 @@ function handleActions(act) {
     return;
   }
   if (mode === 'dead' || mode === 'title') return;
+  if (shot.mode) {
+    // screenshot modes are hands-off: stray keys must not break the frame
+    if (act & ACTION_CONFIRM) audio.resume();
+    return;
+  }
   if (act & ACTION_PAUSE) {
     paused = !paused;
     hud.showPause(paused);
-    if (paused) audio.siren(false);
+    if (paused) {
+      hud.setMissionLog(missionLog());
+      audio.siren(false);
+    }
   }
   if (paused) return;
   if (act & ACTION_ENTER && carCooldown <= 0) {
@@ -496,8 +575,12 @@ function handleActions(act) {
       missions.begin(pendingMission);
       hud.hideBrief();
       hud.showBanner(def.title.toUpperCase(), def.brief, 2.4);
-      if (def.id === 'shake') police.heat = WANTED.thresholds[2] + 6;
+      if (def.id === 'shake') {
+        police.heat = WANTED.thresholds[2] + 6;   // flagged at three stars
+        hud.showToast('THEY KNOW YOUR FACE — SHAKE THEM!');
+      }
       if (def.id === 'heist') hud.showToast('GET IN, GET OUT, GET GONE');
+      if (def.id === 'repo') spawnMarkedCar(0);
       pendingMission = -1;
       audio.resume();
     } else if (playerCar) {
@@ -572,7 +655,11 @@ function frame(now) {
 
   /* headlights + marker bob */
   const night = k.lamps > 0.42;
-  const allCars = [...displayCars, ...(playerCar ? [playerCar] : [])];
+  const allCars = [
+    ...displayCars,
+    ...(playerCar ? [playerCar] : []),
+    ...police.cops.filter((c) => !c.dead),
+  ];
   for (const c of allCars) {
     if (!c.mesh) continue;
     c.mesh.headL.visible = night;
@@ -597,14 +684,7 @@ function frame(now) {
     const blips = [];
     for (const c of traffic.cars) blips.push({ x: c.x, z: c.z, kind: 'car' });
     for (const c of police.cops) if (!c.dead) blips.push({ x: c.x, z: c.z, kind: 'cop' });
-    let markerBlip = null;
-    if (missions.active) {
-      const step = missions.active.def.steps[missions.active.stepIdx];
-      if (step && step.place) markerBlip = PLACES[step.place];
-    } else {
-      const mk = missions.startMarker();
-      if (mk) markerBlip = [mk.x, mk.z];
-    }
+    let markerBlip = activeMarkerPos();
     if (markerBlip) blips.push({ x: markerBlip[0], z: markerBlip[1], kind: 'marker' });
     hud.drawMinimap({
       x: inCar ? playerCar.x : player.state.x,

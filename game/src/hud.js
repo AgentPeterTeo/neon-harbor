@@ -66,6 +66,11 @@ const STYLE = `
   #nh-pause h2 { font-size: 42px; color: #22e6ff; letter-spacing: 10px; margin: 0;
     text-shadow: 0 0 20px #22e6ff, 0 3px 0 #000; }
   #nh-pause p { font-family: Arial, sans-serif; color: #8a93a8; letter-spacing: 2px; margin-top: 14px; }
+  #nh-pause .jobs { margin-top: 26px; font-family: Arial, sans-serif; font-size: 13px;
+    letter-spacing: 2px; line-height: 2.1; text-align: left; text-shadow: 0 1px 0 #000; }
+  #nh-pause .jobs div { color: #565d70; }
+  #nh-pause .jobs .done { color: #9ffcc0; }
+  #nh-pause .jobs .current { color: #ffd24a; text-shadow: 0 0 8px #ffb020; }
   #nh-root.nh-hide-game .nh-game { display: none !important; }
 `;
 
@@ -118,6 +123,7 @@ export function createHUD() {
   const pause = el(root, 'div'); pause.id = 'nh-pause';
   el(pause, 'h2', null, 'PAUSED');
   el(pause, 'p', null, 'ESC to resume · the city waits for no one');
+  const jobs = el(pause, 'div', 'jobs');
 
   /* ---------- state ---------- */
   let moneyShown = 0;
@@ -219,6 +225,14 @@ export function createHUD() {
     pause.style.display = show ? 'flex' : 'none';
   }
 
+  /** entries: [{ title, state: 'done' | 'current' | 'locked' }] — the job log. */
+  function setMissionLog(entries) {
+    jobs.innerHTML = entries.map((e) => {
+      const mark = e.state === 'done' ? '✓' : e.state === 'current' ? '▶' : '·';
+      return `<div class="${e.state}">${mark}&nbsp; ${e.title.toUpperCase()}</div>`;
+    }).join('');
+  }
+
   function setHudVisible(show) {
     // overlays (title/pause) manage their own display; this hides the in-game widgets
     root.classList.toggle('nh-hide-game', !show);
@@ -240,7 +254,9 @@ export function createHUD() {
     tmpCtx.save();
     tmpCtx.clearRect(0, 0, MAP_PX, MAP_PX);
     tmpCtx.translate(R, R);
-    tmpCtx.rotate(-yaw);
+    // heading-up map: yaw 0 faces +z, so the world must be turned so the
+    // player's heading always points at the top of the disc
+    tmpCtx.rotate(yaw - Math.PI);
     tmpCtx.translate(-x * SCALE, -z * SCALE);
     // water
     tmpCtx.fillStyle = '#041018';
@@ -262,7 +278,7 @@ export function createHUD() {
     tmpCtx.stroke();
     // blips
     for (const b of snap.blips || []) {
-      if (b.kind === 'cop') tmpCtx.fillStyle = '#4a7cff';
+      if (b.kind === 'cop') tmpCtx.fillStyle = '#ff4040';
       else if (b.kind === 'marker') tmpCtx.fillStyle = '#ffd24a';
       else tmpCtx.fillStyle = '#9aa4b2';
       const bx = b.x * SCALE;
@@ -280,6 +296,28 @@ export function createHUD() {
     mapCtx.clip();
     mapCtx.drawImage(tmp, 0, 0);
     mapCtx.restore();
+    // gold marker off the disc: pin an arrow to the rim pointing the way
+    const mk = (snap.blips || []).find((b) => b.kind === 'marker');
+    if (mk) {
+      const cy = Math.cos(yaw);
+      const sy = Math.sin(yaw);
+      const ox = -(mk.x - x) * cy + (mk.z - z) * sy;      // heading-up offset
+      const oy = -(mk.x - x) * sy - (mk.z - z) * cy;
+      const d = Math.hypot(ox, oy);
+      if (d * SCALE > R - 16) {
+        mapCtx.save();
+        mapCtx.translate(R + (ox / d) * (R - 13), R + (oy / d) * (R - 13));
+        mapCtx.rotate(Math.atan2(oy, ox));
+        mapCtx.fillStyle = '#ffd24a';
+        mapCtx.beginPath();
+        mapCtx.moveTo(9, 0);
+        mapCtx.lineTo(-5, -6.5);
+        mapCtx.lineTo(-5, 6.5);
+        mapCtx.closePath();
+        mapCtx.fill();
+        mapCtx.restore();
+      }
+    }
     // player arrow, always centred and pointing up
     mapCtx.fillStyle = '#ff2d7a';
     mapCtx.beginPath();
@@ -315,6 +353,6 @@ export function createHUD() {
   return {
     setMoney, setStars, setHealth, setSpeed, setObjective, setDistrict, setClock, setTimer,
     showBanner, showToast, showBrief, hideBrief, showTitle, showPause, setHudVisible,
-    drawMinimap, tick,
+    setMissionLog, drawMinimap, tick,
   };
 }
