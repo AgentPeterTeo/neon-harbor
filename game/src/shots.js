@@ -21,8 +21,9 @@ export function setupShot(mode, ctx, seed) {
   const j = () => (rand() - 0.5) * 1.6; // seeded jitter so props never clip
 
   if (mode === 'start') {
-    // cover shot: high over the neon strip at dusk, title over the city
-    world.tod = 0.055;
+    // cover shot: low down the neon strip at golden dusk — cam horizon, pools
+    // and car glows carry the frame instead of empty dark asphalt
+    world.tod = 0.01;
     world.frozen = true;
     const stripX = GRID.lineAt(9);
     ctx.enterShotCar('sports', 0xff2d7a, stripX + 3.4 + j(), -46 + j(), 0);
@@ -36,7 +37,7 @@ export function setupShot(mode, ctx, seed) {
     hud.showTitle(true);
     // slow drift so the title breathes while the shot stays composed
     return {
-      camOrbit: { x: stripX + 44, z: -60, r: 170, h: 76, phase: 1.02, speed: 0.008, lookY: 24 },
+      camOrbit: { x: stripX + 44, z: -60, r: 124, h: 30, phase: 1.02, speed: 0.006, lookY: 8 },
     };
   }
 
