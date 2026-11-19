@@ -8,6 +8,13 @@
 // your own open-world crime game in its place (three.js or any library you vendor under game/),
 // put your 3 or 4 PNG or JPEG screenshots in screenshots/ (the first by name is the cover) and run it.
 //
+// Neon Harbor, the game this entry ships: a seeded, fully deterministic 2 km neon-lit island city
+// (downtown towers, a neon strip, docks with cranes and containers, palm suburbs, bridges, animated
+// water and a day/night clock that starts at dusk), on-foot + carjacking + arcade driving gameplay,
+// living traffic that obeys lights, pedestrians that scatter, wanted stars with pursuing cruisers,
+// five story missions with $ rewards and localStorage persistence, a rotating minimap HUD, and
+// deterministic ?shot= screenshot modes. 100% original content; audio is synthesized in WebAudio.
+//
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
