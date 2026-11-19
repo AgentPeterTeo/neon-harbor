@@ -196,8 +196,9 @@ export function drawCarLights(ctx, car, night, t) {
     const hx = car.x + Math.cos(h) * len / 2;
     const hy = car.y + Math.sin(h) * len / 2;
     const reach = car.kind === 'player' ? 185 : 120;
+    const cone = car.kind === 'player' ? 0.42 : 0.55;
     const g = ctx.createLinearGradient(hx, hy, hx + Math.cos(h) * reach, hy + Math.sin(h) * reach);
-    g.addColorStop(0, `rgba(255,240,190,${0.42 * night})`);
+    g.addColorStop(0, `rgba(255,240,190,${cone * night})`);
     g.addColorStop(1, 'rgba(255,240,190,0)');
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -208,7 +209,7 @@ export function drawCarLights(ctx, car, night, t) {
     ctx.fill();
     const tx = car.x - Math.cos(h) * len / 2;
     const ty = car.y - Math.sin(h) * len / 2;
-    ctx.fillStyle = 'rgba(255,60,80,0.22)';
+    ctx.fillStyle = 'rgba(255,60,80,0.3)';
     ctx.beginPath();
     ctx.arc(tx, ty, 10, 0, 7);
     ctx.fill();

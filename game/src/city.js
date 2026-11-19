@@ -199,11 +199,12 @@ export function drawCity(ctx, city, view, night, t) {
     }
     ctx.stroke();
     ctx.setLineDash([]);
-    // Glowing bridge railings across the canal.
+    // Glowing bridge railings across the canal (kept bright enough to survive
+    // JPEG compression in daylight captures).
     if (canalVis) {
       ctx.strokeStyle = PALETTE.amber;
       ctx.lineWidth = 2.5;
-      ctx.globalAlpha = 0.35 + night * 0.45;
+      ctx.globalAlpha = 0.7 + night * 0.3;
       if (night > 0.3) {
         ctx.shadowColor = PALETTE.amber;
         ctx.shadowBlur = 8;
