@@ -15,6 +15,7 @@ import { initHUD, drawHUD, drawTitle, drawEndScreen, drawPause } from './hud.js'
 import { createClock, updateClock, dayLight, drawLighting } from './daynight.js';
 import { initInput, input } from './input.js';
 import { parseShot, applyShot } from './shots.js';
+import { initAudio, updateAudio, stingMission, stingBusted, stingWasted } from './audio.js';
 
 const STEP = 1 / 60;
 
@@ -54,9 +55,15 @@ function createWorld(seed) {
     world.police.evadeT = 0;
   };
   world.addStars = (n) => addStars(world.police, world, n);
+  world.sting = (kind) => {
+    if (kind === 'mission') stingMission();
+    else if (kind === 'busted') stingBusted();
+    else if (kind === 'wasted') stingWasted();
+  };
   world.gameOver = (kind) => {
     if (world.state !== 'play') return;
     world.state = kind;
+    world.sting(kind);
     world.shake = kind === 'busted' ? 10 : 14;
     world.spawnSparks(world.player.x, world.player.y, kind === 'wasted' ? 26 : 10);
     if (kind === 'wasted') world.player.damage = 100;
@@ -151,13 +158,21 @@ function playerStep(p, dt, world) {
 }
 
 function update(world, dt) {
-  // Pause only ticks the toasts so they can fade out.
+  // Pause ticks the toasts so they can fade out — and P resumes the run,
+  // exactly as the pause screen promises.
   if (world.paused) {
-    tickToasts(world, dt);
-    return;
+    if (input.pausePressed) {
+      world.paused = false;
+      input.pausePressed = false;
+    } else {
+      tickToasts(world, dt);
+      updateAudio(world, dt);
+      return;
+    }
   }
 
   updateClock(world.clock, dt);
+  updateAudio(world, dt);
   tickToasts(world, dt);
   world.shake = Math.max(0, world.shake - 26 * dt);
 
@@ -322,6 +337,7 @@ function boot() {
   const seed = shot.seed !== null ? shot.seed : ((Date.now() >>> 6) % 100000) + 17;
 
   initInput();
+  initAudio();
   const world = createWorld(seed);
   initHUD(world.city);
   applyShot(world, shot);

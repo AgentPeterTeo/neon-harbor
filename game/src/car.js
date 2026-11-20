@@ -23,6 +23,7 @@ export function createCar(kind, x, y, heading, style) {
     wheel: 0,           // wheel spin accumulator for the rolling ticks
     brakeGlow: 0,
     damage: 0,
+    drift: 0,
     style: style || styleFor(kind),
   };
 }
@@ -71,6 +72,10 @@ export function stepVehicle(car, throttle, steerInput, dt) {
   vf = clamp(vf, -spec.maxRev, spec.maxFwd);
 
   const drifting = Math.abs(car.steer) > 0.55 && Math.abs(vf) > 260;
+  // Publish the drift so the skid marks (and the tire hiss) can react to it.
+  car.drift = drifting
+    ? Math.sign(car.steer) * Math.min(1, 0.45 + (Math.abs(vf) - 260) / 300)
+    : 0;
   const grip = drifting ? spec.driftGrip : spec.grip;
   vl -= vl * Math.min(1, grip * dt);                      // tires bite back
 

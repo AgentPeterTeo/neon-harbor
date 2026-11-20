@@ -229,7 +229,7 @@ export function drawTitle(ctx, t, seed) {
 
   ctx.font = `700 13px ${FONT}`;
   ctx.fillStyle = 'rgba(207,230,255,0.55)';
-  ctx.fillText('WASD / ARROWS — DRIVE      P — PAUSE      5 JOBS, 5 STARS OF HEAT', VIEW_W / 2, VIEW_H - 22);
+  ctx.fillText('WASD / ARROWS — DRIVE      P — PAUSE      M — SOUND      5 JOBS, 5 STARS OF HEAT', VIEW_W / 2, VIEW_H - 22);
   ctx.textAlign = 'right';
   ctx.fillStyle = 'rgba(207,230,255,0.35)';
   ctx.fillText(`city seed ${seed}`, VIEW_W - 12, VIEW_H - 10);
@@ -275,5 +275,5 @@ export function drawPause(ctx) {
   ctx.shadowBlur = 0;
   ctx.font = `700 14px ${FONT}`;
   ctx.fillStyle = 'rgba(207,230,255,0.7)';
-  ctx.fillText('P — RESUME', VIEW_W / 2, VIEW_H / 2 + 30);
+  ctx.fillText('P — RESUME      M — SOUND ON/OFF', VIEW_W / 2, VIEW_H / 2 + 30);
 }
