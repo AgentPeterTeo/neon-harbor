@@ -432,6 +432,18 @@ export function collideStatic(city, x, y, r) {
       const cell = cellAt(city, ci + di, cj + dj);
       if (!cell) continue;
       for (const b of cell.items) {
+        // Park trees are round: push out along the normal instead of a box test.
+        if (Number.isFinite(b.r)) {
+          const dd = Math.hypot(x - b.x, y - b.y);
+          const min = b.r + r;
+          if (dd < min && dd > 0.001) {
+            const push = min - dd;
+            return { pushX: (x - b.x) / dd * push, pushY: (y - b.y) / dd * push, axis: 'x' };
+          }
+          continue;
+        }
+        // Ponds, crates and cranes are scenery, not collision.
+        if (!Number.isFinite(b.w) || !Number.isFinite(b.h)) continue;
         if (x <= b.x - r || x >= b.x + b.w + r) continue;
         if (y <= b.y - r || y >= b.y + b.h + r) continue;
         const dxl = x - (b.x - r);
