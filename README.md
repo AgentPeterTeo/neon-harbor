@@ -23,7 +23,7 @@ Play locally (Node 22+, verified on Node 26 — no build step):
 node serve.ts
 ```
 
-then open <http://localhost:8080>. The dev server binds 127.0.0.1:8080 and serves `game/` with correct ES-module MIME types.
+then open <http://localhost:8080>. The dev server binds 127.0.0.1:8080 and serves `game/` with correct ES-module MIME types. Appending a shot query (e.g. <http://localhost:8080/?shot=play&seed=1>) renders the same composed frames the screenshot contract describes, which is handy for previewing them locally.
 
 Build the entry dossier for the make.fun harness:
 
@@ -41,7 +41,7 @@ That copies `game/` and `screenshots/` into `out/` (streaming copies, Node stdli
 
 ## Screenshot queries
 
-The game supports a deterministic screenshot contract for the three entry images: `?shot=start&seed=1` (dusk title screen), `?shot=play&seed=1` (daylight drive with full HUD), `?shot=mission&seed=1` (night, mission 1 active, dock marker glowing). Any `seed=N` fixes the procedural city layout. Without a valid `shot` query, it's just the game.
+The game supports a deterministic screenshot contract for the three entry images: `?shot=start&seed=1` (dusk title screen), `?shot=play&seed=1` (daylight drive with full HUD), `?shot=mission&seed=1` (night, mission 1 active, dock marker glowing). Each entry in `shots.json` carries a short `note` describing the frame it freezes, so the manifest doubles as its own documentation. Any `seed=N` fixes the procedural city layout. Without a valid `shot` query, it's just the game.
 
 ---
 

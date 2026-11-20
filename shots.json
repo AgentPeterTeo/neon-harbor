@@ -1,5 +1,5 @@
 [
-  { "name": "1-start.jpg", "query": "?shot=start&seed=1" },
-  { "name": "2-play.jpg", "query": "?shot=play&seed=1" },
-  { "name": "3-mission.jpg", "query": "?shot=mission&seed=1" }
+  { "name": "1-start.jpg", "query": "?shot=start&seed=1", "note": "dusk title scene: the coupe parked mid-city, traffic rolling past" },
+  { "name": "2-play.jpg", "query": "?shot=play&seed=1", "note": "bright daylight run up the 5th avenue, HUD live, wanted 1 star" },
+  { "name": "3-mission.jpg", "query": "?shot=mission&seed=1", "note": "night job: mission 1 active, the dock marker glowing ahead" }
 ]
