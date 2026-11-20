@@ -1,12 +1,14 @@
-// Neon Harbor — the screenshot contract. ?shot=start|play|mission with an
+// Neon Harbor — the screenshot contract. ?shot=start|play|mission|chase with an
 // optional ?seed=N freezes the world into a composed frame:
 //   start   — dusk title scene: the coupe parked mid-city, traffic rolling past.
 //   play    — bright daylight run up the 5th avenue, HUD live, wanted 1 star.
 //   mission — night job: mission 1 active, the dock marker glowing ahead.
+//   chase   — late-night heat: cruisers closing on a flat-out coupe.
 // Any other query (or none) just plays the game normally.
 
 import { PITCH, LANE, NX, NY, PALETTE, clamp } from './config.js';
 import { placeCar } from './traffic.js';
+import { createCar } from './car.js';
 import { startMission } from './missions.js';
 
 export function parseShot() {
@@ -14,7 +16,7 @@ export function parseShot() {
   const mode = q.get('shot');
   const seedRaw = parseInt(q.get('seed'), 10);
   return {
-    mode: mode === 'start' || mode === 'play' || mode === 'mission' ? mode : null,
+    mode: mode === 'start' || mode === 'play' || mode === 'mission' || mode === 'chase' ? mode : null,
     seed: Number.isFinite(seedRaw) ? seedRaw : null,
   };
 }
@@ -28,6 +30,8 @@ export function applyShot(world, shot) {
 
   if (shot.mode === 'start') {
     world.state = 'title';
+    // The title shot freezes the pitch as the manifest describes it — no save hint.
+    world.saveInfo = null;
     world.clock.t = 18.6; // warm dusk
     p.x = 5 * PITCH + LANE;      // 1424 — parked on the northbound lane
     p.y = 4 * PITCH + 96;       // 1216
@@ -83,6 +87,36 @@ export function applyShot(world, shot) {
       [3, 'v', 8, 1, 2 * PITCH - 200],
       [4, 'v', 7, -1, 2 * PITCH + 180],
     ]);
+  } else if (shot.mode === 'chase') {
+    world.state = 'play';
+    world.clock.t = 22.4; // late night — the sirens own the streets
+    startMission(world.missions, world, 4); // mission 5: the 4-star sprint home
+    p.x = 5 * PITCH + LANE;      // northbound lane, foot to the floor
+    p.y = 3 * PITCH + 200;
+    p.heading = -Math.PI / 2;
+    p.vx = 0; p.vy = -380;
+    world.cam.x = p.x;
+    world.cam.y = p.y - 70;
+    world.money = 3100;
+    world.setWanted(4);
+    dress(cars, [
+      [0, 'v', 5, -1, 3 * PITCH - 240],  // same lane, rolling north ahead
+      [1, 'v', 5, 1, 3 * PITCH + 320],   // oncoming southbound
+      [2, 'h', 4, -1, 4 * PITCH - 200],  // crossing the node behind
+      [3, 'v', 6, -1, 3 * PITCH - 120],
+    ]);
+    // Two cruisers already on the coupe's tail — two more converging from the grid.
+    world.police.cops.length = 0;
+    const tail = createCar('police', p.x, p.y + 330, -Math.PI / 2);
+    const tail2 = createCar('police', p.x, p.y + 520, -Math.PI / 2);
+    tail.vx = 0; tail.vy = -358; tail2.vx = 0; tail2.vy = -352;
+    world.police.cops.push(tail, tail2);
+    // Pre-laid rubber: the last corner was taken hot.
+    for (let i = 0; i < 7; i++) {
+      const yy = p.y + 34 + i * 26;
+      world.skids.push({ x: p.x - 9, y: yy, a: 0.45, r: p.heading });
+      world.skids.push({ x: p.x + 9, y: yy, a: 0.45, r: p.heading });
+    }
   }
 }
 

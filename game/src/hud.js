@@ -191,7 +191,7 @@ function drawMarkerArrow(ctx, world) {
 // State screens.
 // ---------------------------------------------------------------------------
 
-export function drawTitle(ctx, t, seed) {
+export function drawTitle(ctx, t, seed, save) {
   // A light veil only — the live city should still read through the title.
   ctx.fillStyle = 'rgba(5,7,13,0.26)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -227,14 +227,26 @@ export function drawTitle(ctx, t, seed) {
   ctx.fillText('PRESS ENTER TO START THE RUN', VIEW_W / 2, 330);
   ctx.globalAlpha = 1;
 
+  // A banked run invites you back onto the job.
+  if (save) {
+    ctx.font = `700 16px ${FONT}`;
+    ctx.fillStyle = PALETTE.cyan;
+    ctx.shadowColor = PALETTE.cyan;
+    ctx.shadowBlur = 10;
+    ctx.fillText(save.idx >= 6
+      ? 'C — CONTINUE: ALL JOBS DONE, THE CITY IS YOURS'
+      : `C — CONTINUE: JOB ${save.idx + 1} AT $${save.cash.toLocaleString()} BANKED`, VIEW_W / 2, 360);
+    ctx.shadowBlur = 0;
+  }
+
   ctx.font = `700 13px ${FONT}`;
   ctx.fillStyle = 'rgba(207,230,255,0.55)';
-  ctx.fillText('WASD / ARROWS — DRIVE      P — PAUSE      M — SOUND      5 JOBS, 5 STARS OF HEAT', VIEW_W / 2, VIEW_H - 22);
+  ctx.fillText('WASD / ARROWS — DRIVE      P — PAUSE      M — SOUND      6 JOBS, 5 STARS, C — CONTINUE', VIEW_W / 2, VIEW_H - 22);
   ctx.textAlign = 'right';
   ctx.fillStyle = 'rgba(207,230,255,0.35)';
   ctx.fillText(`city seed ${seed}`, VIEW_W - 12, VIEW_H - 10);
   ctx.textAlign = 'left';
-  ctx.fillText('NEON HARBOR — SESSION 6 BUILD', 12, VIEW_H - 10);
+  ctx.fillText('NEON HARBOR — SESSION 7 BUILD', 12, VIEW_H - 10);
 }
 
 export function drawEndScreen(ctx, kind, t) {

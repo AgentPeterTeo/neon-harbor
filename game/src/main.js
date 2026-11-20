@@ -55,6 +55,21 @@ function createWorld(seed) {
     world.police.evadeT = 0;
   };
   world.addStars = (n) => addStars(world.police, world, n);
+  // Save/continue: bank the run after every job and every respawn, read it back
+  // on the title screen. localStorage is guarded — a private window just plays on.
+  const SAVE_KEY = 'neon-harbor-save-v1';
+  world.saveRun = () => {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ idx: world.missions.idx, cash: Math.round(world.money) }));
+    } catch { /* storage unavailable — the run simply won't persist */ }
+  };
+  world.saveInfo = (() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+      if (!s || typeof s.idx !== 'number' || s.idx < 0) return null;
+      return { idx: Math.min(s.idx, 6), cash: Math.max(0, Math.round(s.cash || 0)) };
+    } catch { return null; }
+  })();
   world.sting = (kind) => {
     if (kind === 'mission') stingMission();
     else if (kind === 'busted') stingBusted();
@@ -185,6 +200,12 @@ function update(world, dt) {
       world.state = 'play';
       startMission(world.missions, world, 0);
       world.toasts.push({ text: 'JOB 1: HOT CARGO TO THE DOCKS', color: PALETTE.cyan, t: 0 });
+    } else if (input.cPressed && world.saveInfo) {
+      // Continue the banked run: restore the cash, resume the next job in the chain.
+      world.state = 'play';
+      world.money = world.saveInfo.cash;
+      startMission(world.missions, world, world.saveInfo.idx);
+      world.toasts.push({ text: `RUN RESUMED — $${world.saveInfo.cash.toLocaleString()} BANKED`, color: PALETTE.amber, t: 0 });
     }
   } else if (world.state === 'play') {
     if (input.pausePressed) {
@@ -222,6 +243,7 @@ function update(world, dt) {
 
   input.enterPressed = false;
   input.pausePressed = false;
+  input.cPressed = false;
 }
 
 function tickToasts(world, dt) {
@@ -250,6 +272,7 @@ function respawn(world) {
   world.cam.x = p.x;
   world.cam.y = p.y;
   resetMission(world.missions, world);
+  world.saveRun();
   world.toasts.push({ text: 'BACK ON THE STREET', color: PALETTE.hud, t: 0 });
 }
 
@@ -316,7 +339,7 @@ function updateAndRender(ctx, world, frameDt) {
 
   // UI layer.
   if (world.state === 'title') {
-    drawTitle(ctx, world.clock.t, world.seed);
+    drawTitle(ctx, world.clock.t, world.seed, world.saveInfo);
   } else {
     drawHUD(ctx, world, world.clock.t);
     if (world.paused) drawPause(ctx);

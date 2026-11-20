@@ -1,7 +1,8 @@
-// Neon Harbor — the five-mission chain: run the hot cargo to the docks, shake a
+// Neon Harbor — the six-mission chain: run the hot cargo to the docks, shake a
 // two-star tail, a three-checkpoint city race against 60 seconds, steal the
-// marked car that's already rolling, and the four-star sprint home to the
-// safehouse. One glowing marker, one HUD line per mission, cash on completion.
+// marked car that's already rolling, the four-star sprint home to the safehouse,
+// and the victory lap — four checkpoints, 75 seconds, the whole city awake.
+// One glowing marker, one HUD line per mission, cash on completion.
 
 import { PITCH, NX, NY, WATER_ROW, PALETTE, dist, clamp } from './config.js';
 import { DOCK_CELL, SAFE_CELL } from './city.js';
@@ -28,6 +29,16 @@ const DEFS = [
     id: 5, type: 'home', reward: 2000, wanted: 4,
     text: 'MISSION 5 — 4 STARS ON YOUR BACK: GET HOME',
     marker: { x: SAFE_CELL.i * PITCH, y: SAFE_CELL.j * PITCH },
+  },
+  {
+    id: 6, type: 'race', reward: 3000, time: 75,
+    text: 'MISSION 6 — VICTORY LAP: 4 CHECKPOINTS IN 75S',
+    cps: [
+      { x: (NX - 2) * PITCH, y: 2 * PITCH },
+      { x: (NX - 2) * PITCH, y: (NY - 2) * PITCH },
+      { x: 2 * PITCH, y: (NY - 2) * PITCH },
+      { x: 5 * PITCH, y: 1 * PITCH },
+    ],
   },
 ];
 
@@ -113,7 +124,7 @@ export function updateMissions(m, dt, world) {
         return;
       }
       m.marker = { x: d.cps[m.race.cp].x, y: d.cps[m.race.cp].y };
-      world.toasts.push({ text: `CHECKPOINT ${m.race.cp}/3`, color: PALETTE.amber, t: 0 });
+      world.toasts.push({ text: `CHECKPOINT ${m.race.cp}/${d.cps.length}`, color: PALETTE.amber, t: 0 });
     }
     if (m.race.t <= 0) {
       m.race.cp = 0;
@@ -138,6 +149,8 @@ function complete(m, world) {
   world.toasts.push({ text: `MISSION COMPLETE +$${m.def.reward}`, color: PALETTE.green, t: 0 });
   if (m.def.type === 'home') world.setWanted(0);
   startMission(m, world, m.idx + 1);
+  // Progress is banked the moment a job pays out.
+  if (world.saveRun) world.saveRun();
 }
 
 // The one HUD line for the current mission.
@@ -145,7 +158,7 @@ export function missionText(m) {
   if (m.done) return 'NEON HARBOR IS YOURS — FREE ROAM';
   if (!m.def) return 'PRESS ENTER TO START THE RUN';
   if (m.def.type === 'race') {
-    return `${m.def.text} — ${Math.max(0, m.race.t).toFixed(1)}s CP ${m.race.cp + 1}/3`;
+    return `${m.def.text} — ${Math.max(0, m.race.t).toFixed(1)}s CP ${m.race.cp + 1}/${m.def.cps.length}`;
   }
   return m.def.text;
 }
